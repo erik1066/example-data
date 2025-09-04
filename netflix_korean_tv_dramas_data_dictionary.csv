@@ -1,0 +1,33 @@
+table,column,type,description,example
+titles,show_id,STRING,Stable slug identifier for the show title; primary key for titles; FK for episodes.,crash-landing-on-you
+titles,title,STRING,English/market title.,Crash Landing on You
+titles,original_title_ko,STRING,Original Korean title (Hangul).,사랑의 불시착
+titles,year_start,INT,First air year.,2019
+titles,year_end,INT,Last air year (same as start for single-year shows).,2020
+titles,seasons,INT,Number of seasons.,1
+titles,episodes,INT,Total number of episodes across all seasons.,16
+titles,per_episode_runtime_min,INT,Typical runtime per episode (minutes).,79
+titles,maturity_rating,STRING,"Netflix maturity rating (e.g., TV-14, TV-MA).",TV-14
+titles,production_company,STRING,Primary production company/companies.,Studio Dragon
+titles,original_network,STRING,Original Korean broadcast network or Netflix if produced for Netflix.,tvN
+titles,netflix_label,STRING,Netflix labeling (Original vs Exclusive international distribution vs Licensed).,Exclusive international distribution
+titles,genres,STRING,Semicolon-separated genres.,Romance;Comedy;Drama
+titles,main_cast,STRING,Semicolon-separated key cast list.,Hyun Bin; Son Ye-jin; Seo Ji-hye
+titles,description,STRING,One-line synopsis of the show.,A South Korean heiress crash-lands in North Korea and is protected by an army officer.
+titles,country,STRING,Country of origin.,South Korea
+titles,netflix_url,STRING,Link to the show’s Netflix landing page when available.,https://www.netflix.com/title/81159258
+titles,source,STRING,Where this row was sourced/verified.,Netflix; Wikipedia
+episodes,show_id,STRING,Slug ID; foreign key to titles.show_id.,crash-landing-on-you
+episodes,season_number,INT,Season index starting at 1.,1
+episodes,episode_number,INT,"Episode index within the season, starting at 1.",3
+episodes,episode_id,STRING,Composite ID: <show_id>-s<season>e<episode>.,crash-landing-on-you-s01e03
+episodes,episode_title,STRING,Placeholder title for training (SxxExx).,S01E03
+episodes,runtime_min,INT,Episode runtime in minutes (copied from titles by default).,79
+titles,subrating_violence,STRING,Maturity subrating for violent content (None/Moderate/Strong).,Strong
+titles,subrating_language,STRING,Maturity subrating for language (None/Moderate/Strong).,Moderate
+titles,subrating_sex,STRING,Maturity subrating for sex/nudity (None/Moderate/Strong).,Moderate
+titles,available_us,BOOLEAN,Availability flag for Netflix US (illustrative; training only).,true
+titles,available_ca,BOOLEAN,Availability flag for Netflix Canada (illustrative; training only).,false
+titles,available_uk,BOOLEAN,Availability flag for Netflix UK (illustrative; training only).,true
+titles,available_kr,BOOLEAN,Availability flag for Netflix South Korea (illustrative; training only).,true
+titles,availability_last_checked,DATE,ISO date the availability snapshot was generated.,2025-09-04

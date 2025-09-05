@@ -1,0 +1,151 @@
+{
+  "version": "1.0",
+  "name": "K\u2011Drama Training Dashboard (DBSQL Starter)",
+  "description": "Starter DBSQL dashboard built on kdrama_titles and kdrama_episodes. Edit warehouse/catalog/schema as needed.",
+  "defaults": {
+    "warehouse_id": "<YOUR_WAREHOUSE_ID>",
+    "catalog": "main",
+    "schema": "default"
+  },
+  "parameters": [
+    {
+      "name": "maturity_filter",
+      "title": "Maturity",
+      "type": "enum",
+      "values": [
+        "ALL",
+        "TV-14",
+        "TV-MA"
+      ],
+      "default": "ALL"
+    },
+    {
+      "name": "region",
+      "title": "Region",
+      "type": "enum",
+      "values": [
+        "US",
+        "CA",
+        "UK",
+        "KR"
+      ],
+      "default": "US"
+    }
+  ],
+  "tiles": [
+    {
+      "id": "avg_runtime_by_maturity",
+      "title": "Avg Runtime by Maturity Rating",
+      "type": "barchart",
+      "position": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "options": {
+        "x": "maturity_rating",
+        "y": "avg_runtime_min",
+        "tooltip": [
+          "maturity_rating",
+          "avg_runtime_min"
+        ]
+      },
+      "sql": "\nSELECT maturity_rating,\n       ROUND(AVG(per_episode_runtime_min), 1) AS avg_runtime_min\nFROM ${catalog}.${schema}.kdrama_titles\nGROUP BY maturity_rating\nORDER BY avg_runtime_min DESC\n"
+    },
+    {
+      "id": "binge_minutes_top",
+      "title": "Top 15 Shows by Binge Minutes",
+      "type": "table",
+      "position": {
+        "x": 8,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "sql": "\nSELECT t.title,\n       t.per_episode_runtime_min * COUNT(e.episode_id) AS binge_minutes,\n       COUNT(e.episode_id) AS episodes\nFROM ${catalog}.${schema}.kdrama_episodes e\nJOIN ${catalog}.${schema}.kdrama_titles t\n  ON e.show_id = t.show_id\nGROUP BY t.title, t.per_episode_runtime_min\nORDER BY binge_minutes DESC\nLIMIT 15\n"
+    },
+    {
+      "id": "availability_counts",
+      "title": "Availability by Region (Counts)",
+      "type": "single_value",
+      "position": {
+        "x": 0,
+        "y": 8,
+        "w": 8,
+        "h": 6
+      },
+      "options": {
+        "layout": "4up"
+      },
+      "sql": "\nSELECT\n  SUM(CASE WHEN available_us THEN 1 ELSE 0 END) AS titles_available_us,\n  SUM(CASE WHEN available_ca THEN 1 ELSE 0 END) AS titles_available_ca,\n  SUM(CASE WHEN available_uk THEN 1 ELSE 0 END) AS titles_available_uk,\n  SUM(CASE WHEN available_kr THEN 1 ELSE 0 END) AS titles_available_kr,\n  COUNT(*) AS total_titles\nFROM ${catalog}.${schema}.kdrama_titles\n"
+    },
+    {
+      "id": "availability_by_maturity",
+      "title": "Availability by Maturity & Region",
+      "type": "stacked_bar",
+      "position": {
+        "x": 8,
+        "y": 8,
+        "w": 8,
+        "h": 6
+      },
+      "options": {
+        "x": "maturity_rating",
+        "series": [
+          "available_us",
+          "available_ca",
+          "available_uk",
+          "available_kr"
+        ]
+      },
+      "sql": "\nSELECT maturity_rating,\n       SUM(CASE WHEN available_us THEN 1 ELSE 0 END) AS available_us,\n       SUM(CASE WHEN available_ca THEN 1 ELSE 0 END) AS available_ca,\n       SUM(CASE WHEN available_uk THEN 1 ELSE 0 END) AS available_uk,\n       SUM(CASE WHEN available_kr THEN 1 ELSE 0 END) AS available_kr\nFROM ${catalog}.${schema}.kdrama_titles\nGROUP BY maturity_rating\nORDER BY maturity_rating\n"
+    },
+    {
+      "id": "subratings_distribution",
+      "title": "Subratings Distribution",
+      "type": "pie",
+      "position": {
+        "x": 0,
+        "y": 14,
+        "w": 6,
+        "h": 7
+      },
+      "options": {
+        "label": "subrating",
+        "value": "cnt"
+      },
+      "sql": "\nWITH tall AS (\n  SELECT 'Violence' AS subrating, subrating_violence AS level FROM ${catalog}.${schema}.kdrama_titles\n  UNION ALL\n  SELECT 'Language', subrating_language FROM ${catalog}.${schema}.kdrama_titles\n  UNION ALL\n  SELECT 'Sex', subrating_sex FROM ${catalog}.${schema}.kdrama_titles\n)\nSELECT CONCAT(subrating, ': ', level) AS subrating, COUNT(*) AS cnt\nFROM tall\nGROUP BY subrating, level\nORDER BY subrating, cnt DESC\n"
+    },
+    {
+      "id": "romance_in_region",
+      "title": "Romance Shows in Selected Region",
+      "type": "table",
+      "position": {
+        "x": 6,
+        "y": 14,
+        "w": 10,
+        "h": 7
+      },
+      "sql": "\nSELECT title,\n       maturity_rating,\n       per_episode_runtime_min,\n       CASE\n         WHEN '${region}' = 'US' THEN available_us\n         WHEN '${region}' = 'CA' THEN available_ca\n         WHEN '${region}' = 'UK' THEN available_uk\n         WHEN '${region}' = 'KR' THEN available_kr\n       END AS available_in_region\nFROM ${catalog}.${schema}.kdrama_titles\nWHERE LOWER(genres) LIKE '%romance%'\n  AND (CASE\n         WHEN '${region}' = 'US' THEN available_us\n         WHEN '${region}' = 'CA' THEN available_ca\n         WHEN '${region}' = 'UK' THEN available_uk\n         WHEN '${region}' = 'KR' THEN available_kr\n       END) = TRUE\nORDER BY title\n"
+    },
+    {
+      "id": "episodes_per_show",
+      "title": "Episodes per Show",
+      "type": "bar",
+      "position": {
+        "x": 0,
+        "y": 21,
+        "w": 16,
+        "h": 8
+      },
+      "options": {
+        "x": "title",
+        "y": "ep_count",
+        "limit": 40,
+        "sort": "desc"
+      },
+      "sql": "\nSELECT t.title, COUNT(*) AS ep_count\nFROM ${catalog}.${schema}.kdrama_episodes e\nJOIN ${catalog}.${schema}.kdrama_titles t\n  ON e.show_id = t.show_id\nGROUP BY t.title\nORDER BY ep_count DESC\nLIMIT 40\n"
+    }
+  ]
+}

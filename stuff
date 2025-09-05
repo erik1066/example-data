@@ -1,0 +1,187 @@
+1
+)
+MV:
+Binge Summary
+(per show)
+
+Fast source FOR “TOP binge minutes”, “Episodes per show”, etc.
+
+CREATE OR REPLACE MATERIALIZED VIEW main.DEFAULT.kdrama_binge_summary AS
+SELECT
+    t.show_id,
+    t.title,
+    COUNT(e.episode_id)                                  AS episode_count,
+    t.per_episode_runtime_min * COUNT(e.episode_id)      AS binge_minutes,
+    t.per_episode_runtime_min,
+    t.maturity_rating,
+    t.subrating_violence,
+    t.subrating_language,
+    t.subrating_sex
+FROM main.DEFAULT.kdrama_titles   t
+    JOIN main.DEFAULT.kdrama_episodes e ON t.show_id = e.show_id
+GROUP BY
+  t.show_id, t.title, t.per_episode_runtime_min,
+  t.maturity_rating, t.subrating_violence, t.subrating_language, t.subrating_sex;
+
+Tile queries TO
+USE
+WITH the MV
+
+    TOP 15 BY binge minutes
+(TABLE OR bar)
+
+SELECT title, binge_minutes, episode_count
+FROM main.DEFAULT.kdrama_binge_summary
+ORDER BY binge_minutes DESC
+LIMIT 15;
+
+    Episodes
+per show
+(bar)
+
+SELECT title, episode_count
+FROM main.DEFAULT.kdrama_binge_summary
+ORDER BY episode_count DESC
+LIMIT 40;
+
+2) MV: Availability
+— totals BY region
+(single-value cards)
+
+Handy FOR 4-up counters.
+
+CREATE OR REPLACE MATERIALIZED VIEW main.DEFAULT.kdrama_availability_totals AS
+SELECT
+    SUM(CASE WHEN available_us THEN 1 ELSE 0 END) AS titles_available_us,
+    SUM(CASE WHEN available_ca THEN 1 ELSE 0 END) AS titles_available_ca,
+    SUM(CASE WHEN available_uk THEN 1 ELSE 0 END) AS titles_available_uk,
+    SUM(CASE WHEN available_kr THEN 1 ELSE 0 END) AS titles_available_kr,
+    COUNT(*)                                       AS total_titles
+FROM main.DEFAULT.kdrama_titles;
+
+Tile query
+
+SELECT *
+FROM main.DEFAULT.kdrama_availability_totals
+;
+
+3)
+MV:
+Availability BY maturity
+(stacked bar source)
+
+Aggregates BY maturity AND region flags.
+
+CREATE OR REPLACE MATERIALIZED VIEW main.DEFAULT.kdrama_availability_by_maturity AS
+SELECT
+    maturity_rating,
+    SUM(CASE WHEN available_us THEN 1 ELSE 0 END) AS available_us,
+    SUM(CASE WHEN available_ca THEN 1 ELSE 0 END) AS available_ca,
+    SUM(CASE WHEN available_uk THEN 1 ELSE 0 END) AS available_uk,
+    SUM(CASE WHEN available_kr THEN 1 ELSE 0 END) AS available_kr
+FROM main.DEFAULT.kdrama_titles
+GROUP BY maturity_rating;
+
+Tile query
+
+SELECT *
+FROM main.DEFAULT.kdrama_availability_by_maturity
+ORDER BY maturity_rating
+;
+
+4)
+MV:
+Subratings
+(long form FOR pie/stacked viz)
+
+Unpivots the three subratings INTO rows → simpler charting.
+
+CREATE OR REPLACE MATERIALIZED VIEW main.DEFAULT.kdrama_subratings_long AS
+WITH
+    long
+    AS
+    (
+                            SELECT 'Violence' AS subrating, subrating_violence AS level
+            FROM main.DEFAULT.kdrama_titles
+        UNION ALL
+            SELECT 'Language', subrating_language
+            FROM main.DEFAULT.kdrama_titles
+        UNION ALL
+            SELECT 'Sex', subrating_sex
+            FROM main.DEFAULT.kdrama_titles
+    )
+SELECT subrating, level, COUNT(*) AS cnt
+FROM long
+GROUP BY subrating, level;
+
+Tile query
+(pie OR stacked bar)
+
+SELECT subrating, level, cnt
+FROM main.DEFAULT.kdrama_subratings_long
+ORDER BY subrating, cnt DESC
+;
+
+5)
+MV:
+Avg runtime BY maturity
+(bar)
+
+Tiny but common KPI.
+
+CREATE OR REPLACE MATERIALIZED VIEW main.DEFAULT.kdrama_avg_runtime_by_maturity AS
+SELECT
+    maturity_rating,
+    ROUND(AVG(per_episode_runtime_min), 1) AS avg_runtime_min
+FROM main.DEFAULT.kdrama_titles
+GROUP BY maturity_rating;
+
+Tile query
+
+SELECT *
+FROM main.DEFAULT.kdrama_avg_runtime_by_maturity
+ORDER BY avg_runtime_min DESC
+;
+
+6)
+MV:
+Romance shows BY region
+(filterable TABLE source)
+
+A convenient source FOR “romance IN selected region” tiles. The UI filter will be added at the query level.
+
+CREATE OR REPLACE MATERIALIZED VIEW main.DEFAULT.kdrama_romance_flags AS
+SELECT
+    title,
+    maturity_rating,
+    per_episode_runtime_min,
+    available_us,
+    available_ca,
+    available_uk,
+    available_kr
+FROM main.DEFAULT.kdrama_titles
+WHERE LOWER(genres) LIKE '%romance%';
+
+Tile query
+(parameterized BY region IN the UI)
+
+-- Create a 'region' string parameter in the Query UI with values US, CA, UK, KR
+SELECT
+    title,
+    maturity_rating,
+    per_episode_runtime_min,
+    CASE
+    WHEN '{{region}}' = 'US' THEN available_us
+    WHEN '{{region}}' = 'CA' THEN available_ca
+    WHEN '{{region}}' = 'UK' THEN available_uk
+    WHEN '{{region}}' = 'KR' THEN available_kr
+  END AS available_in_region
+FROM main.DEFAULT.kdrama_romance_flags
+WHERE
+  CASE
+    WHEN '{{region}}' = 'US' THEN available_us
+    WHEN '{{region}}' = 'CA' THEN available_ca
+    WHEN '{{region}}' = 'UK' THEN available_uk
+    WHEN '{{region}}' = 'KR' THEN available_kr
+  END = TRUE
+ORDER BY title;

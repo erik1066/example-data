@@ -185,3 +185,40 @@ WHERE
     WHEN '{{region}}' = 'KR' THEN available_kr
   END = TRUE
 ORDER BY title;
+
+
+
+
+
+
+df = spark.sql
+("""
+SELECT maturity_rating, COUNT(*) AS title_count
+FROM main.default.kdrama_titles
+GROUP BY maturity_rating
+""")
+
+display
+(df)  
+import matplotlib.pyplot AS plt
+
+pdf = spark.TABLE
+("kdrama_binge_summary_delta").toPandas
+()
+
+plt.figure
+(figsize=
+(10,6))
+pdf.nlargest
+(10, "binge_minutes").plot
+(
+    kind="bar", x="title", y="binge_minutes", legend=False
+)
+plt.title
+("Top 10 K-Dramas by Binge Minutes")
+plt.ylabel
+("Total Minutes")
+plt.xticks
+(rotation=45, ha="right")
+plt.show
+()
